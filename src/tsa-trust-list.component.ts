@@ -65,8 +65,8 @@ import { X509Certificate, SubjectKeyIdentifierExtension, AuthorityKeyIdentifierE
           <p class="text-slate-600 dark:text-slate-300 font-medium text-sm">{{ cert.organization }}</p>
         </div>
         <div class="mt-4 pt-4 border-t border-slate-200 dark:border-slate-700">
-          <button (click)="selectCertificate(cert)" class="w-full bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 font-semibold py-2 px-4 rounded-md transition-colors duration-200 text-sm">
-            View Certificate
+          <button (click)="selectCertificate(cert)" class="w-full bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 font-semibold py-2 px-4 rounded-md transition-colors duration-200">
+            View Details
           </button>
         </div>
       </div>
@@ -102,12 +102,74 @@ import { X509Certificate, SubjectKeyIdentifierExtension, AuthorityKeyIdentifierE
           <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
         </button>
       </div>
-      <div class="p-6 space-y-4 overflow-y-auto">
+      <div class="p-6 space-y-6 overflow-y-auto">
+        <!-- Trusted Entity Information -->
+        <div class="space-y-4">
+          <h4 class="font-semibold text-slate-700 dark:text-slate-200 border-b border-slate-200 dark:border-slate-700 pb-2">Trusted Entity Information</h4>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+            <div>
+              <p class="text-slate-500 dark:text-slate-400 font-medium">Name</p>
+              <p class="text-slate-800 dark:text-slate-200 font-semibold">{{ cert.trustedEntityName }}</p>
+            </div>
+            @if (cert.trustedEntityEmail) {
+              <div>
+                <p class="text-slate-500 dark:text-slate-400 font-medium">Email</p>
+                <a [href]="'mailto:' + cert.trustedEntityEmail" class="text-blue-600 dark:text-blue-400 hover:underline">{{ cert.trustedEntityEmail }}</a>
+              </div>
+            }
+            @if (cert.trustedEntityUri) {
+              <div class="md:col-span-2">
+                <p class="text-slate-500 dark:text-slate-400 font-medium">Information URI</p>
+                <a [href]="cert.trustedEntityUri" target="_blank" rel="noopener noreferrer" class="text-blue-600 dark:text-blue-400 hover:underline break-all">{{ cert.trustedEntityUri }}</a>
+              </div>
+            }
+            @if (cert.trustedEntityAddress) {
+              <div class="md:col-span-2">
+                <p class="text-slate-500 dark:text-slate-400 font-medium">Address</p>
+                <p class="text-slate-800 dark:text-slate-200">{{ cert.trustedEntityAddress }}</p>
+              </div>
+            }
+          </div>
+        </div>
+
+        <!-- Service Information -->
+        <div class="space-y-4">
+          <h4 class="font-semibold text-slate-700 dark:text-slate-200 border-b border-slate-200 dark:border-slate-700 pb-2">Service Information</h4>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+            <div>
+              <p class="text-slate-500 dark:text-slate-400 font-medium">Service Name</p>
+              <p class="text-slate-800 dark:text-slate-200 font-semibold">{{ cert.serviceName }}</p>
+            </div>
+            <div>
+              <p class="text-slate-500 dark:text-slate-400 font-medium">Status</p>
+              <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400 border border-green-200 dark:border-green-800">
+                {{ cert.serviceStatus.split('/').pop() }}
+              </span>
+            </div>
+            <div>
+              <p class="text-slate-500 dark:text-slate-400 font-medium">Status Starting Time</p>
+              <p class="text-slate-800 dark:text-slate-200">{{ cert.statusStartingTime | date:'medium' }}</p>
+            </div>
+          </div>
+        </div>
+        <!-- PEM Certificate -->
+        <div class="space-y-4">
+          <div class="flex items-center gap-2 border-b border-slate-200 dark:border-slate-700 pb-2">
+            <h4 class="font-semibold text-slate-700 dark:text-slate-200">PEM Certificate</h4>
+            <button (click)="copyPem(cert.pem)" class="text-xs bg-slate-200 dark:bg-slate-600 hover:bg-slate-300 dark:hover:bg-slate-500 text-slate-700 dark:text-slate-200 font-semibold py-1 px-2 rounded-md transition-colors">
+              Copy
+            </button>
+          </div>
+          <div>
+            <pre class="text-xs text-slate-800 dark:text-slate-300 bg-slate-100 dark:bg-slate-900/50 p-3 rounded-md overflow-x-auto"><code>{{ cert.pem }}</code></pre>
+          </div>
+        </div>
+
         <!-- Decoded Certificate Details -->
         @if (decodedCertificate()) {
           @let decoded = decodedCertificate()!;
           <div class="space-y-4">
-            <h4 class="font-semibold text-slate-700 dark:text-slate-200">Decoded Certificate Details</h4>
+            <h4 class="font-semibold text-slate-700 dark:text-slate-200 border-b border-slate-200 dark:border-slate-700 pb-2">Decoded Certificate Details</h4>
             
             @if (decoded.error) {
               <p class="text-red-500">{{ decoded.error }}</p>
@@ -177,18 +239,6 @@ import { X509Certificate, SubjectKeyIdentifierExtension, AuthorityKeyIdentifierE
             }
           </div>
         }
-
-        <div>
-          <h4 class="font-semibold text-slate-700 dark:text-slate-200 mb-2">PEM Certificate</h4>
-          <pre class="text-xs text-slate-800 dark:text-slate-300 bg-slate-100 dark:bg-slate-900/50 p-3 rounded-md overflow-x-auto"><code>{{ cert.pem }}</code></pre>
-          <div class="flex justify-end items-center mt-2">
-            <div class="flex gap-2">
-              <button (click)="copyPem(cert.pem)" class="text-sm bg-slate-200 dark:bg-slate-600 hover:bg-slate-300 dark:hover:bg-slate-500 text-slate-700 dark:text-slate-200 font-semibold py-1 px-3 rounded-md transition-colors">
-                Copy
-              </button>
-            </div>
-          </div>
-        </div>
       </div>
       <div class="p-6 bg-slate-50 dark:bg-slate-800/50 border-t border-slate-200 dark:border-slate-700 text-right rounded-b-lg sticky bottom-0">
         <button (click)="closeModal()" class="bg-slate-500 hover:bg-slate-600 dark:bg-slate-600 dark:hover:bg-slate-500 text-white font-semibold py-2 px-4 rounded-md shadow-sm transition-colors duration-200">
