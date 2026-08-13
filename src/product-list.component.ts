@@ -1299,6 +1299,16 @@ export class ProductListComponent {
   }
 
   formatSignalName(signal: string): string {
+    const knownSignals: Record<string, string> = {
+      'capturedMedia': 'Captured Media',
+      'capturedMediaStitched': 'Captured Media Stitched',
+      'nonGenAIDigitalCreation': 'Non GenAI Digital Creation'
+    };
+
+    if (knownSignals[signal]) {
+      return knownSignals[signal];
+    }
+
     let cached = this.signalNameCache.get(signal);
     if (cached !== undefined) return cached;
     cached = signal
