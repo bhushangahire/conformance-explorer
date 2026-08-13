@@ -26,12 +26,7 @@ type SortKey = 'conformanceDateDesc' | 'conformanceDateAsc' | 'creationDateDesc'
               <p class="text-sm text-slate-500 dark:text-slate-400 mt-0.5">{{ selectedGroup()?.organizationalUnit }}</p>
             }
           </div>
-          @if (selectedGroup()?.infoURL; as infoUrl) {
-            <a [href]="infoUrl" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 dark:bg-blue-900/40 text-blue-600 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900/60 rounded-lg text-xs font-bold transition-colors border border-blue-200 dark:border-blue-800">
-              <svg width="16" height="16" style="width: 16px; height: 16px; min-width: 16px; min-height: 16px;" class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg>
-              <span>Product Documentation</span>
-            </a>
-          }
+          <!-- Product Documentation link removed -->
         </div>
         <div class="mt-2 flex items-center gap-2">
             <span class="text-xs font-mono bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400 px-2 py-0.5 rounded">{{ selectedGroup()?.distinguishedName }}</span>
