@@ -1301,7 +1301,7 @@ export class ProductListComponent {
   formatSignalName(signal: string): string {
     const knownSignals: Record<string, string> = {
       'capturedMedia': 'Captured Media',
-      'capturedMediaStitched': 'Captured Media Stitched',
+      'capturedMediaStitched': 'Stitched Captured Media',
       'nonGenAIDigitalCreation': 'Non GenAI Digital Creation'
     };
 
