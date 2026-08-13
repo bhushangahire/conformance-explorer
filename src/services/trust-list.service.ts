@@ -5,51 +5,105 @@ import { map, shareReplay } from 'rxjs/operators';
 import { Certificate } from '../models/certificate.model';
 import { X509Certificate } from '@peculiar/x509';
 
+// Interfaces for Trust List JSON Structure
+interface JsonLangValue { lang: string; value: string; }
+interface JsonLangUriValue { lang: string; uriValue: string; }
+interface JsonPostalAddress { lang: string; StreetAddress: string; Locality: string; Country: string; StateOrProvince: string; PostalCode: string; }
+interface JsonElectronicAddress { lang: string; uriValue: string; }
+interface JsonTEAddress { TEPostalAddress?: JsonPostalAddress[]; TEElectronicAddress?: JsonElectronicAddress[]; }
+interface JsonTrustedEntityInformation { TEName?: JsonLangValue[]; TEAddress?: JsonTEAddress; TEInformationURI?: JsonLangUriValue[]; }
+interface JsonX509Certificate { val: string; }
+interface JsonServiceDigitalIdentity { X509Certificates?: JsonX509Certificate[]; }
+interface JsonServiceInformation { ServiceName?: JsonLangValue[]; ServiceDigitalIdentity?: JsonServiceDigitalIdentity; ServiceStatus: string; StatusStartingTime: string; }
+interface JsonTrustedEntityService { ServiceInformation: JsonServiceInformation; }
+interface JsonTrustedEntity { TrustedEntityInformation: JsonTrustedEntityInformation; TrustedEntityServices?: JsonTrustedEntityService[]; }
+interface JsonLoTE { TrustedEntitiesList?: JsonTrustedEntity[]; }
+interface JsonTrustList { LoTE: JsonLoTE; }
+
 @Injectable({
   providedIn: 'root',
 })
 export class TrustListService {
   private http = inject(HttpClient);
-  private readonly PEM_URL = 'https://raw.githubusercontent.com/c2pa-org/conformance-public/refs/heads/main/trust-list/C2PA-TRUST-LIST.pem';
+  private readonly JSON_URL = 'https://raw.githubusercontent.com/c2pa-org/conformance-public/refs/heads/main/trust-list/C2PA-TRUST-LIST.json';
 
-  private certificates$ = this.http.get(this.PEM_URL, { responseType: 'text' }).pipe(
-    map(pemText => this.parsePemFile(pemText)),
+  private certificates$ = this.http.get<JsonTrustList>(this.JSON_URL).pipe(
+    map(json => this.parseJsonFile(json)),
     shareReplay(1)
   );
 
   certificates = toSignal(this.certificates$, { initialValue: [] as Certificate[] });
 
-  private parsePemFile(text: string): Certificate[] {
+  private parseJsonFile(json: JsonTrustList): Certificate[] {
     const certificates: Certificate[] = [];
-    const certBlocks = text.split('-----END CERTIFICATE-----').filter(block => block.trim() !== '');
+    let id = 0;
 
-    certBlocks.forEach((block, index) => {
-      const trimmedBlock = block.trim();
-      const parts = trimmedBlock.split('-----BEGIN CERTIFICATE-----');
-      if (parts.length < 2) return;
+    const entities = json.LoTE?.TrustedEntitiesList || [];
+    for (const entity of entities) {
+      const info = entity.TrustedEntityInformation;
+      if (!info) continue;
 
-      const pemBody = `-----BEGIN CERTIFICATE-----\n${parts[1].trim()}\n-----END CERTIFICATE-----`;
+      const teName = info.TEName?.[0]?.value || 'Unknown Entity';
+      const teUri = info.TEInformationURI?.[0]?.uriValue;
+      
+      // Extract email from TEElectronicAddress
+      const teEmail = info.TEAddress?.TEElectronicAddress?.find(addr => addr.uriValue.startsWith('mailto:'))?.uriValue.replace('mailto:', '');
+      
+      // Format address
+      const postal = info.TEAddress?.TEPostalAddress?.[0];
+      const teAddress = postal ? `${postal.StreetAddress}, ${postal.Locality}, ${postal.StateOrProvince} ${postal.PostalCode}, ${postal.Country}` : undefined;
 
-      try {
-        const cert = new X509Certificate(pemBody);
-        const subject = cert.subject;
-        const organizationField = cert.subjectName.getField('O');
-        const commonNameField = cert.subjectName.getField('CN');
+      const services = entity.TrustedEntityServices || [];
+      for (const service of services) {
+        const svcInfo = service.ServiceInformation;
+        if (!svcInfo) continue;
 
-        const organization = Array.isArray(organizationField) ? organizationField[0] : organizationField;
-        const commonName = Array.isArray(commonNameField) ? commonNameField[0] : commonNameField;
+        const serviceName = svcInfo.ServiceName?.[0]?.value || 'Unknown Service';
+        const serviceStatus = svcInfo.ServiceStatus;
+        const statusStartingTime = svcInfo.StatusStartingTime;
 
-        certificates.push({
-          id: index,
-          subject: subject,
-          organization: organization || 'N/A',
-          commonName: commonName || 'N/A',
-          pem: pemBody
-        });
-      } catch (error) {
-        console.error('Failed to parse certificate:', error);
+        const certs = svcInfo.ServiceDigitalIdentity?.X509Certificates || [];
+        for (const cert of certs) {
+          const val = cert.val;
+          if (!val) continue;
+
+          // Convert to PEM format
+          const pem = `-----BEGIN CERTIFICATE-----\n${val.trim()}\n-----END CERTIFICATE-----`;
+
+          // Try to decode X.509 to get subject/issuer etc. for compatibility
+          let subject = 'N/A';
+          let organization = 'N/A';
+          let commonName = 'N/A';
+
+          try {
+            const x509 = new X509Certificate(pem);
+            subject = x509.subject;
+            const orgField = x509.subjectName.getField('O');
+            const cnField = x509.subjectName.getField('CN');
+            
+            organization = Array.isArray(orgField) ? orgField[0] : orgField || 'N/A';
+            commonName = Array.isArray(cnField) ? cnField[0] : cnField || 'N/A';
+          } catch (e) {
+            console.error('Failed to parse X509 certificate for', serviceName, e);
+          }
+
+          certificates.push({
+            id: id++,
+            subject,
+            organization: organization !== 'N/A' ? organization : teName, // Fallback to TEName
+            commonName: commonName !== 'N/A' ? commonName : serviceName, // Fallback to ServiceName
+            pem,
+            trustedEntityName: teName,
+            serviceName,
+            serviceStatus,
+            statusStartingTime,
+            trustedEntityAddress: teAddress,
+            trustedEntityUri: teUri,
+            trustedEntityEmail: teEmail
+          });
+        }
       }
-    });
+    }
 
     return certificates;
   }
