@@ -12,7 +12,7 @@ type TrustListSortKey = 'entryDateDesc' | 'entryDateAsc' | 'nameAsc' | 'nameDesc
   template: `<div class="space-y-6">
   <!-- Filter Section -->
   <div class="bg-white dark:bg-slate-800 p-4 rounded-lg shadow-sm border border-slate-200 dark:border-slate-700">
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
       <!-- Filter by Organization -->
       <div>
         <label for="organization-filter" class="block text-sm font-medium text-slate-700 dark:text-slate-300">Filter by Organization</label>
@@ -39,22 +39,6 @@ type TrustListSortKey = 'entryDateDesc' | 'entryDateAsc' | 'nameAsc' | 'nameDesc
           class="mt-1 block w-full rounded-md border-slate-300 dark:border-slate-600 shadow-sm focus:border-slate-400 focus:ring focus:ring-slate-300 focus:ring-opacity-50 text-sm py-2 px-3 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-200"
         />
       </div>
-      <!-- Sort By -->
-      <div>
-        <label for="sort-order" class="block text-sm font-medium text-slate-700 dark:text-slate-300">Sort By</label>
-        <select 
-          id="sort-order"
-          [ngModel]="sortOrder()"
-          (ngModelChange)="onSortOrderChange($event)"
-          class="mt-1 block w-full rounded-md border-slate-300 dark:border-slate-600 shadow-sm focus:border-slate-400 focus:ring focus:ring-slate-300 focus:ring-opacity-50 text-sm py-2 px-3 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-200">
-          <option value="nameAsc">Name (A-Z)</option>
-          <option value="nameDesc">Name (Z-A)</option>
-          <option value="orgAsc">Organization (A-Z)</option>
-          <option value="orgDesc">Organization (Z-A)</option>
-          <option value="entryDateDesc">Entry Date (Newest First)</option>
-          <option value="entryDateAsc">Entry Date (Oldest First)</option>
-        </select>
-      </div>
     </div>
     <!-- Reset Button -->
     <div class="mt-4 flex justify-end">
@@ -67,10 +51,25 @@ type TrustListSortKey = 'entryDateDesc' | 'entryDateAsc' | 'nameAsc' | 'nameDesc
     </div>
   </div>
 
-  <!-- Results Count -->
-  <div class="flex justify-start items-center my-4">
+  <!-- Results Count & Sorting -->
+  <div class="flex justify-between items-center my-4">
     <div class="text-sm text-slate-600 dark:text-slate-400">
       Showing <span class="font-semibold text-slate-700 dark:text-slate-200">{{ filteredCertificates().length }}</span> of <span class="font-semibold text-slate-700 dark:text-slate-200">{{ certificates().length }}</span> certificates.
+    </div>
+    <div class="flex items-center">
+        <label for="sort-order" class="text-sm font-medium text-slate-700 dark:text-slate-300 mr-2 whitespace-nowrap">Sort results by</label>
+        <select 
+            id="sort-order"
+            [ngModel]="sortOrder()"
+            (ngModelChange)="onSortOrderChange($event)"
+            class="block rounded-md border-slate-300 dark:border-slate-600 shadow-sm focus:border-slate-400 focus:ring focus:ring-slate-300 focus:ring-opacity-50 text-sm py-2 px-3 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-200">
+            <option value="nameAsc">Name (A-Z)</option>
+            <option value="nameDesc">Name (Z-A)</option>
+            <option value="orgAsc">Organization (A-Z)</option>
+            <option value="orgDesc">Organization (Z-A)</option>
+            <option value="entryDateDesc">Entry Date (Newest First)</option>
+            <option value="entryDateAsc">Entry Date (Oldest First)</option>
+        </select>
     </div>
   </div>
 
