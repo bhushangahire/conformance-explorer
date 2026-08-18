@@ -5,6 +5,8 @@ import { TsaTrustListService } from './services/tsa-trust-list.service';
 import { Certificate } from './models/certificate.model';
 import { X509Certificate, SubjectKeyIdentifierExtension, AuthorityKeyIdentifierExtension } from '@peculiar/x509';
 
+type TrustListSortKey = 'entryDateDesc' | 'entryDateAsc' | 'nameAsc' | 'nameDesc' | 'orgAsc' | 'orgDesc';
+
 @Component({
   selector: 'app-tsa-trust-list',
   template: `<div class="space-y-6">
@@ -49,10 +51,25 @@ import { X509Certificate, SubjectKeyIdentifierExtension, AuthorityKeyIdentifierE
     </div>
   </div>
 
-  <!-- Results Count -->
-  <div class="flex justify-start items-center my-4">
+  <!-- Results Count & Sorting -->
+  <div class="flex justify-between items-center my-4">
     <div class="text-sm text-slate-600 dark:text-slate-400">
       Showing <span class="font-semibold text-slate-700 dark:text-slate-200">{{ filteredCertificates().length }}</span> of <span class="font-semibold text-slate-700 dark:text-slate-200">{{ certificates().length }}</span> certificates.
+    </div>
+    <div class="flex items-center">
+        <label for="sort-order" class="text-sm font-medium text-slate-700 dark:text-slate-300 mr-2 whitespace-nowrap">Sort results by</label>
+        <select 
+            id="sort-order"
+            [ngModel]="sortOrder()"
+            (ngModelChange)="onSortOrderChange($event)"
+            class="block rounded-md border-slate-300 dark:border-slate-600 shadow-sm focus:border-slate-400 focus:ring focus:ring-slate-300 focus:ring-opacity-50 text-sm py-2 px-3 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-200">
+            <option value="nameAsc">Name (A-Z)</option>
+            <option value="nameDesc">Name (Z-A)</option>
+            <option value="orgAsc">Organization (A-Z)</option>
+            <option value="orgDesc">Organization (Z-A)</option>
+            <option value="entryDateDesc">Entry Date (Newest First)</option>
+            <option value="entryDateAsc">Entry Date (Oldest First)</option>
+        </select>
     </div>
   </div>
 
@@ -269,6 +286,7 @@ export class TsaTrustListComponent {
   certificates = this.tsaTrustListService.certificates;
   selectedOrganization = signal('');
   searchTerm = signal('');
+  sortOrder = signal<TrustListSortKey>('nameAsc');
   selectedCertificate = signal<Certificate | null>(null);
   decodedCertificate = signal<any | null>(null);
 
@@ -281,6 +299,7 @@ export class TsaTrustListComponent {
   filteredCertificates = computed(() => {
     const org = this.selectedOrganization();
     const term = this.searchTerm().toLowerCase();
+    const sort = this.sortOrder();
 
     let filtered = this.certificates();
 
@@ -295,7 +314,25 @@ export class TsaTrustListComponent {
       );
     }
 
-    return filtered;
+    // Sort the filtered results
+    return [...filtered].sort((a, b) => {
+      switch (sort) {
+        case 'entryDateDesc':
+          return new Date(b.statusStartingTime).getTime() - new Date(a.statusStartingTime).getTime();
+        case 'entryDateAsc':
+          return new Date(a.statusStartingTime).getTime() - new Date(b.statusStartingTime).getTime();
+        case 'nameAsc':
+          return a.commonName.localeCompare(b.commonName);
+        case 'nameDesc':
+          return b.commonName.localeCompare(a.commonName);
+        case 'orgAsc':
+          return a.organization.localeCompare(b.organization) || a.commonName.localeCompare(b.commonName);
+        case 'orgDesc':
+          return b.organization.localeCompare(a.organization) || a.commonName.localeCompare(b.commonName);
+        default:
+          return 0;
+      }
+    });
   });
 
   isAnyFilterActive = computed(() => {
@@ -311,9 +348,14 @@ export class TsaTrustListComponent {
     this.searchTerm.set(term);
   }
 
+  onSortOrderChange(sort: TrustListSortKey): void {
+    this.sortOrder.set(sort);
+  }
+
   resetFilters(): void {
     this.selectedOrganization.set('');
     this.searchTerm.set('');
+    this.sortOrder.set('nameAsc');
   }
 
   selectCertificate(certificate: Certificate): void {
