@@ -740,6 +740,11 @@ export class ProductListComponent {
   // Record targeted by a ?record= deep link, used to highlight and scroll to it.
   highlightedRecordId = signal<string | null>(null);
 
+  // Deep-linked record id (lowercased). Participates in filteredProducts() as an
+  // AND predicate like every other URL filter, so ?o=X&record=Y matches only
+  // records satisfying both.
+  deepLinkRecordId = signal<string | null>(null);
+
   // Canonical deep-link key first; 'recordId' accepted as an alias.
   private static readonly RECORD_PARAM_KEYS = ['record', 'recordId'];
 
@@ -804,9 +809,9 @@ export class ProductListComponent {
         this.searchTerm.set(searchParts.join(' '));
       }
 
-      // 6. Map 'record' (or 'recordId') -> open the modal for that CPL record.
-      // Resolved against the full product set rather than the filtered view, so a
-      // link stays valid even when combined with filters that would exclude it.
+      // 6. Map 'record' (or 'recordId') -> filter to that CPL record and open its
+      // modal. ANDed with the other URL filters; if they exclude the record, the
+      // grid shows 0 results and no modal opens.
       const recordId = ProductListComponent.RECORD_PARAM_KEYS
         .map(key => getParam(key))
         .find((value): value is string => !!value);
@@ -1000,6 +1005,7 @@ export class ProductListComponent {
     const sort = this.sortOrder();
     const term = this.searchTerm().trim().toLowerCase();
     const status = this.selectedStatus();
+    const record = this.deepLinkRecordId();
 
     const genLiveEncaps = this.selectedGenerationLiveEncapsulations();
     const genLiveMethods = this.selectedGenerationLiveSigningMethods();
@@ -1011,6 +1017,9 @@ export class ProductListComponent {
     const words = term.length > 0 ? term.split(/\s+/).filter(Boolean) : [];
 
     const filtered = this.products().filter(p => {
+      // 0. Deep-linked record id (case-insensitive exact match)
+      if (record && p.recordId.toLowerCase() !== record) return false;
+
       // 1. Scalar exact-match filters (short-circuiting early)
       if (vendor !== '' && p.vendorName !== vendor) return false;
       if (type !== '' && p.productType !== type) return false;
@@ -1110,7 +1119,8 @@ export class ProductListComponent {
            this.selectedGenerationLiveSigningMethods().size > 0 ||
            this.selectedValidationLiveEncapsulations().size > 0 ||
            this.selectedValidationLiveSigningMethods().size > 0 ||
-           this.searchTerm() !== '';
+           this.searchTerm() !== '' ||
+           this.deepLinkRecordId() !== null;
   });
 
   // Event handlers
@@ -1251,6 +1261,8 @@ export class ProductListComponent {
     this.selectedGenerationLiveSigningMethods.set(new Set());
     this.selectedValidationLiveEncapsulations.set(new Set());
     this.selectedValidationLiveSigningMethods.set(new Set());
+    this.deepLinkRecordId.set(null);
+    this.writeRecordParam(null);
   }
 
   private readonly statusCache = new Map<string, string>();
@@ -1453,6 +1465,7 @@ export class ProductListComponent {
   closeModal(): void {
     this.selectedGroup.set(null);
     this.highlightedRecordId.set(null);
+    this.deepLinkRecordId.set(null);
     this.writeRecordParam(null);
   }
 
@@ -1464,18 +1477,23 @@ export class ProductListComponent {
     return 'bg-slate-300 dark:bg-slate-600';
   }
 
-  // Opens the modal for the group containing `recordId`, matched case-insensitively
-  // against the full CPL. Returns false when no such record exists, leaving the UI
-  // untouched so a stale or mistyped link degrades to the normal list view.
+  // Applies `recordId` as a filter predicate (ANDed with all active filters, matched
+  // case-insensitively) and opens its modal only when the record survives them.
+  // Otherwise the grid shows the standard 0-results state and no modal opens.
   openRecordById(recordId: string, options: { updateUrl: boolean } = { updateUrl: true }): boolean {
     const target = recordId.trim().toLowerCase();
     if (!target) return false;
 
-    const match = this.products().find(p => p.recordId.toLowerCase() === target);
-    if (!match) return false;
+    this.deepLinkRecordId.set(target);
 
-    const siblings = this.products().filter(p => p.distinguishedName === match.distinguishedName);
-    this.selectedGroup.set(this.buildGroup(match.distinguishedName, siblings));
+    const match = this.filteredProducts().find(p => p.recordId.toLowerCase() === target);
+    if (!match) {
+      this.selectedGroup.set(null);
+      this.highlightedRecordId.set(null);
+      return false;
+    }
+
+    this.selectedGroup.set(this.buildGroup(match.distinguishedName, [match]));
     this.highlightedRecordId.set(match.recordId);
 
     if (options.updateUrl) {
@@ -1525,6 +1543,7 @@ export class ProductListComponent {
       } else {
         this.selectedGroup.set(null);
         this.highlightedRecordId.set(null);
+        this.deepLinkRecordId.set(null);
       }
     });
   }
@@ -1543,8 +1562,8 @@ export class ProductListComponent {
   copyRecordLink(product: Product): void {
     if (!isPlatformBrowser(this.platformId)) return;
 
-    const url = new URL(window.location.href);
-    ProductListComponent.RECORD_PARAM_KEYS.forEach(key => url.searchParams.delete(key));
+    // Clean canonical link: just origin + path + record, no session filter params.
+    const url = new URL(window.location.origin + window.location.pathname);
     url.searchParams.set('record', product.recordId);
 
     navigator.clipboard
